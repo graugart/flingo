@@ -14,14 +14,31 @@
 
 ## Install
 
-Flingo is a Claude Code mod (function hooks). It needs a Claude Code version with mod support (2.1.288 or newer).
+In Claude Code (2.1.288 or newer), paste:
 
 ```
-/plugin marketplace add graugart/flingo
-/plugin install pet@flingo
+/plugin install pet --marketplace graugart/flingo
 ```
 
-Start a new session and Flingo hatches. Use `/flingo big` for the sidebar (fullscreen layout, terminal at least 110 columns wide) or `/flingo small` for the status line.
+Or from your terminal:
+
+```
+claude plugin marketplace add graugart/flingo && claude plugin install pet@flingo
+```
+
+Start a new session and Flingo hatches. `/flingo big` opens the sidebar (fullscreen layout, terminal at least 110 columns wide), `/flingo small` keeps it in the status line.
+
+## Updates
+
+Turn on auto-update once and Flingo stays fresh by itself: run `/plugin`, open **Marketplaces**, pick **flingo**, choose **Enable auto-update**.
+
+Or update by hand whenever you like:
+
+```
+/plugin marketplace update flingo
+```
+
+Then restart Claude Code.
 
 ## Commands
 

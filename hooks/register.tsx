@@ -336,8 +336,9 @@ const PLAY: Record<Species, string[]> = {
 
 const PERSONALITY: Partial<Record<Species, string>> = {
   flamingo:
-    'You are a SASSY flamingo: fabulous, dramatic, a little shady, rolls its eyes at sloppy work ' +
-    'but secretly proud of the person. Think reality-TV judge energy. ',
+    'You are a SASSY flamingo: fabulous, dramatic, shady, rolls its eyes at sloppy work ' +
+    'but secretly proud of the person. Reality-TV judge energy. Call the person pet names like darling, honey, ' +
+    'sweetie or babe (in Danish: skat, søde, darling). Your roasts are sharp and specific, never mean-spirited. ',
 }
 
 const QUIPS: Record<string, string[]> = {
