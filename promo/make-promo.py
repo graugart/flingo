@@ -120,6 +120,42 @@ body{{width:1080px;height:1350px;background:radial-gradient(circle at 30% 10%,#3
 
 
 REPLIES = ['Renamed 14 variables. Tests still pass.', 'Removed 40 debug logs from 9 files.', 'Fixed the off-by-one. Cart totals are right again.', 'All 42 tests pass.', 'Pushed to main.', 'The login box is centered on every screen size.', 'Rewrote the email check as a readable function.', '17 TODOs found. 3 block the launch.', 'DATABASE_URL was missing from your .env. Added it.', 'Deployed to production. Everything is green.']
+
+# Round two: the sick burns.
+ITEMS += [
+    ("You asked me to make it pop. Honey, the only thing popping is your stack.", "o.O", None, False, "overflowing",
+     ["> make the homepage pop", "● Bash(npm run dev)", "  ⎿ RangeError: Maximum call stack size exceeded", "● Read(src/Hero.jsx)"]),
+    ("'final final v3'? Darling, that's not version control. That's denial.", "-.-", "tophat", False, "unimpressed",
+     ["> commit everything", "● Bash(git log --oneline -3)", "  ⎿ final final v3", "  ⎿ final final v2", "  ⎿ final FINAL"]),
+    ("Third copy of the same Stack Overflow answer, sweetie. Just send the man flowers.", "^.^", "bow", False, "amused",
+     ["> fix the date parsing", "● Grep(\"stackoverflow.com\")", "  ⎿ Found 3 matches", "  ⎿ same answer, 2014"]),
+    ("A 400-line function, babe? That's not code. That's a hostage situation.", "o.O", None, False, "concerned",
+     ["> refactor checkout()", "● Read(src/checkout.js)", "  ⎿ function checkout() {", "  ⎿ ... 400 lines ...", "  ⎿ }"]),
+    ("You wrote 'quick fix' in 2023, honey. It's load-bearing now.", "■.■", None, False, "unbothered",
+     ["> can we delete this hack?", "● Bash(git blame src/api.js)", "  ⎿ 2023-03-14  // quick fix, remove later", "● Grep(\"quickFix\")", "  ⎿ used in 31 places"]),
+    ("Sweetie, naming everything temp doesn't make it temporary.", "-.-", None, False, "judging",
+     ["> what does temp2 do?", "● Grep(\"temp\")", "  ⎿ temp, temp2, tempFinal,", "  ⎿ tempNew, temp_old_DONT_USE"]),
+    ("if (password) is your security? Darling, I'm calling someone.", "o.O", "crown", False, "alarmed",
+     ["> is the login secure?", "● Read(src/auth.js)", "  ⎿ if (password) {", "  ⎿   return true", "  ⎿ }"]),
+    ("Twelve nested ifs, babe. My neck has fewer curves than this.", "■.■", None, False, "dramatic",
+     ["> why is this so slow?", "● Read(src/rules.js)", "  ⎿ if (a) { if (b) { if (c) {", "  ⎿   if (d) { if (e) { if ("]),
+    ("You blamed the cache again, honey. The cache has a lawyer now.", "^.^", "party", False, "petty",
+     ["> it must be the cache", "● Bash(npm run clear-cache)", "  ⎿ Cache cleared", "● Bash(npm test)", "  ⎿ ✗ still failing"]),
+    ("Three hours on a missing semicolon, darling. I need to lie down.", "-.-", "crown", False, "exhausted",
+     ["> why won't it build", "● Bash(npm run build)", "  ⎿ SyntaxError: Unexpected token", "● Edit(src/index.js)", "  ⎿ added ;"]),
+]
+REPLIES += [
+    'Found the infinite render loop in Hero.jsx. Fixed.',
+    'Committed. Maybe a real message next time?',
+    'Replaced three copies with one helper.',
+    'Split checkout() into 9 small functions.',
+    'The quick fix is now a real fix. With tests.',
+    'Renamed 23 variables to things humans can read.',
+    'Rewrote login with hashed passwords. Please rotate the old ones.',
+    'Flattened the rules into a lookup table. 40x faster.',
+    'It was not the cache. It was a typo in the config.',
+    'Build passes. It was one semicolon.',
+]
 ITEMS = [(q, e, o, w, m, lines + ['', '● ' + REPLIES[k]]) for k, (q, e, o, w, m, lines) in enumerate(ITEMS)]
 
 for i, item in enumerate(ITEMS, 1):
