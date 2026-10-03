@@ -61,7 +61,7 @@ test('fun commands', async ($, on) => {
   await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
   expect((await $.command.run({ command: 'pet', args: 'help' } as never)).text).toContain('/pet roast')
   expect((await $.command.run({ command: 'pet', args: 'fortune' } as never)).text).toContain('You will ship')
-  expect((await $.command.run({ command: 'pet', args: 'wear crown' } as never)).text).toContain('crown')
+  expect((await $.command.run({ command: 'pet', args: 'wear party' } as never)).text).toContain('a party hat')
   expect((await $.command.run({ command: 'pet', args: 'trick' } as never)).text).toContain('!')
 })
 

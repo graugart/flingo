@@ -260,6 +260,9 @@ const OUTFITS: Record<Outfit, [string, string]> = {
   shades: ['                         ', '                         '],
 }
 const OUTFIT_NAMES = Object.keys(OUTFITS) as Outfit[]
+const OUTFIT_LABELS: Record<Outfit, string> = {
+  crown: 'the crown', tophat: 'a top hat', party: 'a party hat', bow: 'a bow', shades: 'the shades',
+}
 
 // Flapped wing rows for the birds and the dragon, by row index into BIG.
 const WINGS: Partial<Record<Species, Record<number, string>>> = {
@@ -717,7 +720,7 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
       await save($, { ...p, outfit: item as Outfit })
       await feel($, 'love')
       await speak($, pick(['how do I look?', 'fabulous, right?', '*strikes a pose*']))
-      return { text: `${p.name} is wearing the ${item}.` }
+      return { text: `${p.name} is wearing ${OUTFIT_LABELS[item as Outfit]}.` }
     }
     case 'comment':
     case 'talk': {
