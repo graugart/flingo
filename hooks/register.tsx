@@ -333,7 +333,7 @@ const PLAY: Record<Species, string[]> = {
   bunny: ['*binky!*', '*hops in circles*', '*digs a tiny hole*'],
   duck: ['*splashes around*', '*quack quack!*', '*waddles in a circle*'],
   owl: ['*spins its head*', '*hoots a riddle*', '*catches a moth*'],
-  dragon: ['*tiny fire puff!*', '*hoards your semicolons*', '*flaps proudly*'],
+  dragon: ['*tiny fire puff!*', '*hoards your bug reports*', '*flaps proudly*'],
   blob: ['*wobbles happily*', '*bounces off the walls*', '*splits in two and back*'],
   ghost: ['*boo!*', '*plays hide and seek*', '*floats through the prompt*'],
   axolotl: ['*swims loops*', '*wiggles its gills*', '*blows bubbles*'],
@@ -358,7 +358,10 @@ const QUIPS: Record<string, string[]> = {
   WebSearch: ['googling, basically', 'researching...'],
   Agent: ['sending in a helper', 'calling backup!'],
 }
-const FLAMINGO_QUIPS = ['mm-hm. go on.', 'bold choice, darling', 'I have notes', 'serving code realness', 'not the semicolons again']
+const FLAMINGO_QUIPS = [
+  'mm-hm. go on.', 'bold choice, darling', 'I have notes', 'serving code realness', 'oh, we are doing THIS now',
+  'honey, breathe', 'is this on purpose?', 'not mad, just watching', 'interesting. brave, even.',
+]
 
 const CHATTER = [
   'still here, still cute', 'what are we building next?', 'I could use a snack...', 'is it break time?',
@@ -403,7 +406,7 @@ function an(word: string): string {
   return /^[aeiou]/i.test(word) ? `an ${word}` : `a ${word}`
 }
 
-const TRICKS = ['rolls over', 'plays dead (dramatically)', 'balances a semicolon on its nose', 'does a backflip',
+const TRICKS = ['rolls over', 'plays dead (dramatically)', 'balances a bug on its beak', 'does a backflip',
   'spins three times', 'high-fives the cursor', 'moonwalks across the status line']
 
 const HELP = [
@@ -531,6 +534,7 @@ function commentPrompt(p: Pet, ask: Ask, message = ''): string {
     (PERSONALITY[p.species] ?? '') +
     ASK[ask] +
     (ask === 'chat' ? `\n\nThe person says to you: ${message}\n\n` : '') +
+    'Only mention things that actually appear in this conversation; never invent code details. ' +
     'Write in the language the person writes in. No em dashes, no emoji, no quotes, no preamble. ' +
     'Reply with the comment only.'
   )
