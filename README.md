@@ -4,7 +4,7 @@
 
 **Your code has a critic now.** Flingo is a sassy ASCII flamingo that gives Claude Code a face. It lives in a sidebar (or your status line), talks as Claude while it works, and roasts you, lovingly, about your code.
 
-![Flingo](promo/flingo-05.png)
+![Flingo for Claude Code](promo/social-preview.png)
 
 ## What it does
 
