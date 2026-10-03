@@ -1,0 +1,11 @@
+{
+  "name": "pet",
+  "version": "1.0.0",
+  "description": "Flingo, a sassy ASCII flamingo that gives Claude Code a face: it talks as Claude, comments on your work, and lives in a sidebar or the status line.",
+  "author": { "name": "graugart" },
+  "homepage": "https://github.com/graugart/flingo",
+  "repository": "https://github.com/graugart/flingo",
+  "license": "MIT",
+  "keywords": ["pet", "tamagotchi", "companion", "flamingo", "fun"],
+  "types": "./types/index.d.ts"
+}

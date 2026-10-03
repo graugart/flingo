@@ -1,0 +1,16 @@
+{
+  "name": "flingo",
+  "owner": {
+    "name": "graugart"
+  },
+  "plugins": [
+    {
+      "name": "pet",
+      "source": "./",
+      "description": "Flingo, a sassy ASCII flamingo that gives Claude Code a face."
+    }
+  ],
+  "metadata": {
+    "description": "Flingo, the sassy flamingo that gives Claude Code a face."
+  }
+}
