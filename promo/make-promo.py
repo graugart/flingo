@@ -1,4 +1,4 @@
-import html, json, os, subprocess
+import html, json, os, re, subprocess
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.html'), exist_ok=True)
@@ -77,14 +77,44 @@ def wrap(text, width):
     return out
 
 
+TOOL = re.compile(r'^● (\w+)\((.*)\)$')
+
+
+def line_html(ln):
+    e = html.escape
+    if ln == '':
+        return '<div class="gap"></div>'
+    if ln.startswith('>'):
+        return f'<div class="t u">{e(ln)}</div>'
+    if ln.startswith('✻'):
+        return f'<div class="t spin">{e(ln)}</div>'
+    m = TOOL.match(ln)
+    if m:
+        return f'<div class="t tool"><span class="dot">●</span> <b>{e(m.group(1))}</b>({e(m.group(2))})</div>'
+    if ln.startswith('●'):
+        return f'<div class="t say"><span class="wdot">●</span>{e(ln[1:])}</div>'
+    if ln.startswith('  + '):
+        return f'<div class="t add">{e(ln[2:])}</div>'
+    if ln.startswith('  - '):
+        return f'<div class="t del">{e(ln[2:])}</div>'
+    return f'<div class="t r">{e(ln)}</div>'
+
+
 def page(i, item):
     quote, eyes, outfit, wings, mood, lines = item
-    bubble = wrap(quote, 22)
-    bubble += [''] * (4 - len(bubble))
+    bubble = wrap(quote, 28)
+    bubble += [''] * (3 - len(bubble))
     rows = sprite(eyes, outfit, wings)
-    transcript = ''.join(
-        f'<div class="t {"u" if ln.startswith(">") else "a" if ln.startswith("●") else "r" if ln.startswith("  ") else "x"}">{html.escape(ln)}</div>'
-        for ln in lines)
+    parts, last = [], ''
+    for ln in lines:
+        # A wrapped line continues the prompt or prose above it.
+        is_cont = ln.startswith('  ') and not ln.startswith(('  ⎿', '    ', '  + ', '  - '))
+        if is_cont and last in ('u', 'say'):
+            parts.append(f'<div class="t {last} cont">{html.escape(ln.strip())}</div>')
+            continue
+        parts.append(line_html(ln))
+        last = 'u' if ln.startswith('>') else 'say' if ln.startswith('●') and not TOOL.match(ln) else ''
+    transcript = ''.join(parts)
     bub = ''.join(f'<div>{html.escape(r) or "&nbsp;"}</div>' for r in bubble)
     spr = ''.join(f'<div>{html.escape(r)}</div>' for r in rows)
     return f'''<!doctype html><html><head><meta charset="utf-8"><style>
@@ -95,8 +125,13 @@ body{{width:1080px;height:1350px;background:radial-gradient(circle at 30% 10%,#3
 .bar{{height:52px;background:#16131a;display:flex;align-items:center;padding:0 22px;gap:10px;color:#857c8c;font-size:17px}}
 .dot{{width:14px;height:14px;border-radius:50%}}
 .main{{flex:1;display:flex}}
-.left{{width:400px;flex:none;padding:28px 24px;font-size:18px;line-height:1.7;border-right:2px dashed #3a3340;white-space:pre-wrap}}
-.t.u{{color:#f5f0f7}} .t.a{{color:#c9b8d6;margin-top:10px}} .t.r{{color:#7f7686}} .t.x{{color:#e8e3ea;margin-top:16px}}
+.left{{width:440px;flex:none;padding:24px 22px 18px;font-size:15.5px;line-height:1.55;border-right:2px dashed #3a3340;white-space:pre-wrap;display:flex;flex-direction:column}}
+.tx{{flex:1;overflow:hidden}}
+.gap{{height:12px}}
+.box{{border:1.5px solid #4a4250;border-radius:8px;padding:8px 12px;color:#e8e3ea;margin-top:12px}}
+.box i{{display:inline-block;width:9px;height:17px;background:#e8e3ea;vertical-align:-3px;margin-left:2px}}
+.hint{{color:#6f6676;font-size:13px;padding:6px 4px 0}}
+.t.u{{color:#f5f0f7;background:#1d1a21;border-radius:4px;padding:2px 8px;margin:0 -8px}} .t.r{{color:#7f7686}} .t.say{{color:#e8e3ea}} .wdot{{color:#e8e3ea;margin-right:2px}} .t.tool{{color:#e8e3ea}} .t.tool b{{font-weight:700}} .dot{{color:#4ec97a}} .t.add{{color:#9be3b0;background:#12301e;padding-left:28px}} .t.del{{color:#f2a3a3;background:#3a1518;padding-left:28px}} .t.spin{{color:#e8925a}} .t.say.cont{{padding-left:18px}} .t.u.cont{{padding-left:24px}}
 .right{{flex:1;background:#101014;padding:24px 26px;font-size:21px;line-height:1.24;white-space:pre}}
 .bubble{{border:2.5px solid #ff6fd8;border-radius:16px;padding:14px 18px;color:#fff;font-size:26px;line-height:1.36;font-weight:600;white-space:normal}}
 .bubble div{{white-space:pre}}
@@ -111,7 +146,7 @@ body{{width:1080px;height:1350px;background:radial-gradient(circle at 30% 10%,#3
 <div class="win">
  <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span style="margin-left:14px">~/my-app · claude</span></div>
  <div class="main">
-  <div class="left">{transcript}</div>
+  <div class="left"><div class="tx">{transcript}</div><div class="box">&gt; <i></i></div><div class="hint">  ? for shortcuts</div></div>
   <div class="right"><div class="bubble">{bub}</div><div class="ptr">\\</div><div class="spr">{spr}</div><div class="name">  Flingo the flamingo</div><div class="mood">  feeling {html.escape(mood)}</div></div>
  </div>
 </div>
@@ -156,7 +191,31 @@ REPLIES += [
     'It was not the cache. It was a typo in the config.',
     'Build passes. It was one semicolon.',
 ]
-ITEMS = [(q, e, o, w, m, lines + ['', '● ' + REPLIES[k]]) for k, (q, e, o, w, m, lines) in enumerate(ITEMS)]
+# Round three: fuller sessions.
+REPLIES += ['', '', '', '', '', '', '', '', '', '']
+ITEMS += [
+    ("You asked for a small change and touched 47 files, honey. Small like your test coverage.", "o.O", None, False, "horrified",
+     ["> tiny tweak: rename user to account", "", "● I'll rename it everywhere it appears.", "", "● Grep(\"user\")", "  ⎿ Found 312 matches in 47 files", "", "● Edit(src/models/user.ts)", "  - export class User {", "  + export class Account {", "", "● Bash(npm test)", "  ⎿ 3 tests, 3 passed", "", "● Renamed across 47 files. Only 3 tests", "  cover any of it.", "", "✻ Judging… (8s · esc to interrupt)"]),
+    ("Darling, you pasted your API key into the prompt. In this economy?", "■.■", "crown", False, "scandalized",
+     ["> why is this failing? key is", "  sk-live-4f9a... use that", "", "● Never paste live keys into chat. I'll", "  read it from the environment instead.", "", "● Edit(src/payments.ts)", "  - const key = \"sk-live-4f9a...\"", "  + const key = process.env.STRIPE_KEY", "", "● Rotate that key today. It has been", "  shared in plain text.", "", "✻ Clutching pearls… (3s)"]),
+    ("A useEffect with no dependency array, sweetie? You live dangerously and render infinitely.", "o.O", None, False, "dizzy",
+     ["> the page freezes after login", "", "● Read(src/Dashboard.tsx)", "  ⎿ Read 88 lines", "", "● Found it. This effect runs on every", "  render and sets state every time.", "", "● Edit(src/Dashboard.tsx)", "  - useEffect(() => { setUser(load()) })", "  + useEffect(() => { setUser(load()) }, [])", "", "● Bash(npm run dev)", "  ⎿ ✓ ready in 412ms"]),
+    ("You said it's just CSS three hours ago, babe. CSS has won.", "-.-", None, False, "exhausted",
+     ["> just make the footer stick to the bottom", "  it's just CSS", "", "● Edit(src/footer.css)", "  + position: sticky;", "  + bottom: 0;", "", "● Bash(npx playwright screenshot)", "  ⎿ footer floating mid-page", "", "● Edit(src/layout.css)", "  + min-height: 100dvh;", "  + display: flex; flex-direction: column;", "", "✻ Fighting z-index… (3h 2m)"]),
+    ("Honey, fixed it as a commit message for the ninth time is a cry for help.", "-.-", "tophat", False, "concerned",
+     ["> commit this", "", "● Bash(git log --oneline -9)", "  ⎿ a41f2 fixed it", "  ⎿ 9c0e1 fixed it", "  ⎿ 77b3d fixed it", "  ⎿ ... 6 more fixed it", "", "● Bash(git commit -m \"...\")", "  ⎿ [main 3e8a1] Fix race in session", "    refresh, add retry with backoff", "", "● Committed with a message future you", "  can actually read."]),
+    ("You catch errors and log oops. Darling, that's not handling. That's journaling.", "^.^", "bow", False, "amused",
+     ["> why do payments fail silently?", "", "● Grep(\"catch\")", "  ⎿ Found 14 matches", "", "● Read(src/checkout.ts)", "  ⎿ } catch (e) { console.log(\"oops\") }", "", "● Edit(src/checkout.ts)", "  - } catch (e) { console.log(\"oops\") }", "  + } catch (e) {", "  +   logger.error(\"charge failed\", e)", "  +   throw new PaymentError(e)", "  + }"]),
+    ("Sweetie, your .env is in the repo. The whole internet says thank you.", "o.O", "crown", False, "alarmed",
+     ["> clean up the repo before launch", "", "● Bash(git ls-files | grep env)", "  ⎿ .env", "  ⎿ .env.production", "", "● Those contain real secrets and they", "  are public on GitHub.", "", "● Bash(git rm --cached .env*)", "  ⎿ rm '.env'", "  ⎿ rm '.env.production'", "", "● Edit(.gitignore)", "  + .env*", "", "✻ Rotating every secret… (2m 14s)"]),
+    ("You asked for dark mode, babe. Your code has been dark for years.", "■.■", None, False, "shady",
+     ["> add dark mode", "", "● I'll add a theme toggle and dark", "  tokens.", "", "● Edit(src/theme.css)", "  + @media (prefers-color-scheme: dark) {", "  +   --bg: #0b0b0e;", "  +   --text: #e8e3ea;", "  + }", "", "● Bash(npm run build)", "  ⎿ ✓ built in 2.1s", "", "● Dark mode is live."]),
+    ("A regex to parse HTML? Honey, I've seen horror movies with better endings.", "o.O", None, False, "spooked",
+     ["> pull all links out of the page html", "", "● Read(src/scrape.js)", "  ⎿ /<a\\s+(?:[^>]*?\\s+)?href=([\"'])(.*?)\\1/g", "", "● That pattern breaks on nested tags", "  and unquoted attributes.", "", "● Edit(src/scrape.js)", "  - const links = html.match(LINK_RE)", "  + const doc = parse(html)", "  + const links = doc.querySelectorAll(\"a\")", "", "● Bash(npm test)", "  ⎿ ✓ 18 passed"]),
+    ("You named the branch fix-everything, darling. Manifesting, I see.", "^o^", "party", False, "delighted",
+     ["> make a branch for the release fixes", "", "● Bash(git checkout -b fix-everything)", "  ⎿ Switched to a new branch", "    'fix-everything'", "", "● Grep(\"FIXME\")", "  ⎿ Found 64 matches", "", "● Starting with the 6 that block", "  checkout.", "", "✻ Manifesting… (41s · esc to interrupt)"]),
+]
+ITEMS = [(q, e, o, w, m, lines + (['', '● ' + REPLIES[k]] if REPLIES[k] else [])) for k, (q, e, o, w, m, lines) in enumerate(ITEMS)]
 
 for i, item in enumerate(ITEMS, 1):
     src = os.path.join(HERE, f'flingo-{i:02d}.html')
