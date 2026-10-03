@@ -33,6 +33,9 @@ const QUIP_EVERY_MS = 12 * 1000
 const QUIP_SHOWS_FOR = 5 * 1000
 const CHATTER_EVERY_MS = 4 * 60 * 1000
 
+// Flingo is a flamingo for now; flip this to let people pick another animal again.
+const IS_SPECIES_CHOICE_ON = false
+
 const SPECIES: Species[] = ['cat', 'dog', 'bunny', 'duck', 'owl', 'dragon', 'blob', 'ghost', 'axolotl', 'flamingo']
 
 // Each sprite: two frames, three rows. {e} is replaced by the eyes for the mood.
@@ -413,7 +416,6 @@ const HELP = [
   '/pet comment      a comment on your work now',
   '/pet sleep|wake   nap time',
   '/pet wear <item>  crown, tophat, party, bow, shades, none',
-  '/pet animal <a>   cat, dog, bunny, duck, owl, dragon, blob, ghost, axolotl, flamingo',
   '/pet name <name>  rename it',
   '/pet big|small    sidebar or status line',
   '/pet quiet|chatty comments off or on',
@@ -430,7 +432,6 @@ const PANE_COMMANDS = [
   'comment    sleep',
   'wake       stats',
   'wear <item>',
-  'animal <animal>',
   'name <name>',
   'small      quiet',
   'chatty     hide',
@@ -654,8 +655,14 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
       await speak($, game)
       return { text: `You play with ${p.name}. ${game}` }
     }
+    // Species choice is switched off while Flingo is the brand; the other sprites stay for later.
     case 'animal':
     case 'species': {
+      if (!IS_SPECIES_CHOICE_ON) {
+        await feel($, 'busy', 4000)
+        await speak($, 'A flamingo, darling. Always. Next question.')
+        return { text: `${p.name} is a flamingo, darling. Always has been.` }
+      }
       const asked = (rest[0] ?? '').toLowerCase()
       const want = (ALIASES[asked] ?? asked) as Species
       if (!SPECIES.includes(want)) {
@@ -773,6 +780,11 @@ export const register: Register = on => {
       await update($, pet, () => p!)
       await speak($, `*hatches* Hi! I'm ${p.name}.`)
     } else {
+      // Pets that became another animal before the choice was switched off turn back into flamingos.
+      if (!IS_SPECIES_CHOICE_ON && p.species !== 'flamingo') {
+        p = { ...p, species: 'flamingo' }
+        await $.store.set(STORE_KEY, p)
+      }
       await update($, pet, () => p!)
       const h = hunger(p, now)
       await speak($, h > 60 ? `${p.name} is hungry. Try /pet feed` : `${p.name} missed you!`)
@@ -781,7 +793,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'pet',
       description: 'Your pet. /pet help lists everything it can do',
-      argumentHint: '[help|feed|play|treat|trick|roast|hype|fortune|wear|animal|big|small]',
+      argumentHint: '[help|feed|play|treat|trick|roast|hype|fortune|wear|big|small]',
       immediate: true,
     })
     await $.command.register({

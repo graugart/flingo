@@ -10,7 +10,7 @@
 - **Speaks for Claude.** When Claude finishes, Flingo says the opening line of the reply, typed out letter by letter like an old adventure game.
 - **Moves when it talks.** Head bobs, wing flaps and little hops while it speaks. At rest it just blinks.
 - **Chat with it.** `/flingo how are we doing?` answers in character, with the conversation as context.
-- **A real pet.** Feed it, play with it, give it treats, dress it up (crown, top hat, party hat, bow, shades) or turn it into a cat, dog, bunny, duck, owl, dragon, blob, ghost or axolotl.
+- **A real pet.** Feed it, play with it, give it treats, dress it up (crown, top hat, party hat, bow, shades).
 
 ## Install
 
@@ -51,7 +51,6 @@ Then restart Claude Code.
 | `/flingo comment` | a comment on your work right now |
 | `/flingo feed` · `treat` · `play` · `trick` | look after it |
 | `/flingo wear <crown\|tophat\|party\|bow\|shades\|none>` | outfits |
-| `/flingo animal <animal>` | change species |
 | `/flingo name <name>` | rename it |
 | `/flingo big` · `small` | sidebar or status line |
 | `/flingo quiet` · `chatty` · `sleep` · `wake` | fewer or more comments |

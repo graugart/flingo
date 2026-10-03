@@ -44,15 +44,13 @@ for (const surface of ['terminal', 'desktop'] as const) {
   })
 }
 
-test('/pet play and /pet animal', async ($, on) => {
+test('/pet play, and Flingo stays a flamingo', async ($, on) => {
   engine(on)
   await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
   const played = await $.command.run({ command: 'pet', args: 'play' } as never)
   expect(played.text).toContain('You play with')
-  const dragon = await $.command.run({ command: 'pet', args: 'animal flamingo' } as never)
-  expect(dragon.text).toContain('is now a flamingo')
-  const bad = await $.command.run({ command: 'pet', args: 'animal unicorn' } as never)
-  expect(bad.text).toContain('Pick one')
+  const dragon = await $.command.run({ command: 'pet', args: 'animal dragon' } as never)
+  expect(dragon.text).toContain('is a flamingo')
   const petted = await $.command.run({ command: 'pet', args: 'pet' } as never)
   expect(petted.text).toContain('You pet')
 })
@@ -64,8 +62,6 @@ test('fun commands', async ($, on) => {
   expect((await $.command.run({ command: 'pet', args: 'help' } as never)).text).toContain('/pet roast')
   expect((await $.command.run({ command: 'pet', args: 'fortune' } as never)).text).toContain('You will ship')
   expect((await $.command.run({ command: 'pet', args: 'wear crown' } as never)).text).toContain('crown')
-  expect((await $.command.run({ command: 'pet', args: 'animal rabbit' } as never)).text).toContain('a bunny')
-  expect((await $.command.run({ command: 'pet', args: 'animal owl' } as never)).text).toContain('an owl')
   expect((await $.command.run({ command: 'pet', args: 'trick' } as never)).text).toContain('!')
 })
 
