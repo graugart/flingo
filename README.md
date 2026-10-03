@@ -1,5 +1,7 @@
 # Flingo for Claude Code
 
+### A sassy flamingo companion for the Claude Code terminal. It gives Claude a face and roasts you while you code.
+
 **Your code has a critic now.** Flingo is a sassy ASCII flamingo that gives Claude Code a face. It lives in a sidebar (or your status line), talks as Claude while it works, and roasts you, lovingly, about your code.
 
 ![Flingo](promo/flingo-05.png)
