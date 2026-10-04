@@ -166,3 +166,43 @@ test('a long reply is cut to whole sentences that fit the bubble', async ($, on)
   }
   expect(rows).toBeLessThan(8)
 })
+
+const HUNGRY_FLINGO = {
+  name: 'Flingo', species: 'flamingo', bornAt: 0, lastFedAt: 0, happiness: 50, pets: 0, turns: 0,
+}
+
+function hungryEngine(on: On, extra: Record<string, unknown> = {}) {
+  const clock = mock.clock(on, { now: 10 * 60 * 60 * 1000 } as never)
+  mock.store(on, { pet: { ...HUNGRY_FLINGO, ...extra } })
+  on('session.start', async ($, e) => ({ cwd: e.cwd }) as never)
+  on('command.register', async () => ({ value: undefined }) as never)
+  on('ui.open', async () => ({ value: { isPlaced: true } }) as never)
+  return clock
+}
+
+const PANE_PROPS = { title: 'Pet', isFocused: false, bodyColumns: 27, placement: 'dock', scroll: { offset: 0, bodyRows: 60 } }
+
+test('a mess follows a meal, and /flingo clean removes it', async ($, on) => {
+  const clock = hungryEngine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
+  await $.command.run({ command: 'flingo', args: 'big' } as never)
+  expect((await $.command.run({ command: 'flingo', args: 'feed' } as never)).text).toContain('You fed')
+  const ui = await $.ui.mount({ plugin: 'pet', surface: 'terminal', component: 'Pane', requestId: 'pet', props: PANE_PROPS as never })
+  expect(await ui.find({ text: /\(___\)/ })).toBeFalsy()
+  await clock.advance(6 * 60 * 1000)
+  expect(await ui.find({ text: /\(___\)/ })).toBeTruthy()
+  expect((await $.command.run({ command: 'flingo', args: 'clean' } as never)).text).toContain('cleaned up')
+  expect(await ui.find({ text: /\(___\)/ })).toBeFalsy()
+})
+
+test('/flingo needs off: no hunger, no mess', async ($, on) => {
+  const clock = hungryEngine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
+  await $.command.run({ command: 'flingo', args: 'big' } as never)
+  expect((await $.command.run({ command: 'flingo', args: 'needs off' } as never)).text).toContain('no longer')
+  expect((await $.command.run({ command: 'flingo', args: 'feed' } as never)).text).toContain("isn't hungry")
+  const ui = await $.ui.mount({ plugin: 'pet', surface: 'terminal', component: 'Pane', requestId: 'pet', props: PANE_PROPS as never })
+  await clock.advance(6 * 60 * 1000)
+  expect(await ui.find({ text: /\(___\)/ })).toBeFalsy()
+  expect(await ui.find({ text: /hungry/ })).toBeFalsy()
+})

@@ -10,6 +10,11 @@ export type Pet = {
   pets: number
   turns: number
   outfit?: Outfit
+  // Messes waiting for /flingo clean, and when the next one is due after a meal.
+  poops?: number
+  poopAt?: number
+  // /flingo needs off: no hunger and no messes, for people who don't want a tamagotchi.
+  isLowMaintenance?: boolean
 }
 
 declare module 'claude-code' {

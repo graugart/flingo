@@ -461,6 +461,8 @@ const HELP = [
   '/pet say <msg>    chat with it (or just /flingo <msg>)',
   '/pet comment      a comment on your work now',
   '/pet sleep|wake   nap time',
+  '/pet clean        clean up its mess',
+  '/pet needs off|on no hunger and no mess, or back on',
   '/pet wear <item>  crown, tophat, party, bow, shades, none',
   '/pet name <name>  rename it',
   '/pet big|small    sidebar or status line',
@@ -477,6 +479,7 @@ const PANE_COMMANDS = [
   'hype       fortune',
   'comment    sleep',
   'wake       stats',
+  'clean      needs',
   'wear <item>',
   'name <name>',
   'small      quiet',
@@ -498,7 +501,35 @@ function openingLine(answer: string): string | null {
   return fitBubble(sentence)
 }
 
+// A mess follows a meal a few minutes later, unless needs are switched off.
+const POOP_AFTER_MS = 2 * 60 * 1000
+const POOP_SPREAD_MS = 3 * 60 * 1000
+const MAX_POOPS = 3
+const POOP_ART = ['   ,  ', '  ( ) ', ' (___)']
+
+function withPoopDue(p: Pet, now: number): Pet {
+  if (p.isLowMaintenance || p.poopAt) return p
+  return { ...p, poopAt: now + POOP_AFTER_MS + Math.round(Math.random() * POOP_SPREAD_MS) }
+}
+
+// Draws the messes over the empty cells at the bottom left of the sprite.
+function withPoops(rows: string[], poops: number): string[] {
+  if (!poops) return rows
+  const art = poops > 1 ? [...POOP_ART.slice(0, -1), `${POOP_ART[2]}x${poops}`] : POOP_ART
+  const start = rows.length - art.length
+  return rows.map((row, i) => {
+    const piece = art[i - start]
+    if (i < start || !piece) return row
+    const cells = [...row.padEnd(piece.length)]
+    ;[...piece].forEach((ch, c) => {
+      if (ch !== ' ' && cells[c] === ' ') cells[c] = ch
+    })
+    return cells.join('')
+  })
+}
+
 function hunger(p: Pet, now: number): number {
+  if (p.isLowMaintenance) return 0
   return Math.min(100, Math.round(((now - p.lastFedAt) / HOUR) * 5))
 }
 
@@ -517,6 +548,7 @@ let lastQuipAt = 0
 let lastChatterAt = 0
 let isCommenting = false
 let lastStatus = ''
+let isPooping = false
 // While the big sidebar pet is open, the small one stays out of the status line.
 let isBigOpen = false
 
@@ -540,7 +572,8 @@ async function drawStatus($: EngineInterface) {
   const bubble = said ? said.slice(0, await read($, typed)) : null
   const isTalking = said !== null && bubble !== null && bubble.length < said.length
   const { eyes } = pose(p.species, m, await read($, frame), isTalking)
-  const text = `(${eyes}) ${p.name}${bubble ? `: ${bubble}` : ''}`
+  const mess = p.poops ? ` [mess x${p.poops}: /flingo clean]` : ''
+  const text = `(${eyes}) ${p.name}${mess}${bubble ? `: ${bubble}` : ''}`
   if (text === lastStatus) return
   lastStatus = text
   $.ui.status(text)
@@ -673,7 +706,7 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
         await speak($, "I'm full!")
         return { text: `${p.name} isn't hungry right now.` }
       }
-      await save($, { ...p, lastFedAt: now, happiness: Math.min(100, p.happiness + 5) })
+      await save($, withPoopDue({ ...p, lastFedAt: now, happiness: Math.min(100, p.happiness + 5) }, now))
       await feel($, 'eating')
       await speak($, pick(['nom nom nom', '*munch*', 'yum!']))
       return { text: `You fed ${p.name}.` }
@@ -731,8 +764,33 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
     case 'help':
     case '?':
       return { text: HELP }
+    case 'clean': {
+      if (!p.poops) {
+        await speak($, 'Nothing to clean, babe. For once.')
+        return { text: `Nothing to clean. ${p.name} is spotless.` }
+      }
+      await save($, { ...p, poops: 0, happiness: Math.min(100, p.happiness + 5) })
+      await feel($, 'love')
+      await speak($, pick(['Spotless. Unlike your git history.', 'Thank you, servant. I mean, darling.', 'Fresh. Now do the same for your codebase.']))
+      return { text: `You cleaned up after ${p.name}.` }
+    }
+    case 'needs': {
+      const want = (rest[0] ?? '').toLowerCase()
+      if (want !== 'on' && want !== 'off') {
+        return { text: `Needs are ${p.isLowMaintenance ? 'off' : 'on'}. /pet needs off: no hunger, no messes. /pet needs on: the full tamagotchi.` }
+      }
+      if (want === 'off') {
+        await save($, { ...p, isLowMaintenance: true, poops: 0, poopAt: undefined })
+        await speak($, 'Low maintenance? Me? Fine. I never eat anyway, darling.')
+        return { text: `${p.name} no longer gets hungry or makes a mess.` }
+      }
+      await save($, { ...p, isLowMaintenance: false, lastFedAt: now })
+      await speak($, 'Feed me, love me, clean up after me. As it should be.')
+      return { text: `${p.name} gets hungry and makes messes again.` }
+    }
     case 'treat': {
-      await save($, { ...p, lastFedAt: Math.min(now, p.lastFedAt + HOUR), happiness: Math.min(100, p.happiness + 3) })
+      const fed = { ...p, lastFedAt: Math.min(now, p.lastFedAt + HOUR), happiness: Math.min(100, p.happiness + 3) }
+      await save($, Math.random() < 0.5 ? withPoopDue(fed, now) : fed)
       await feel($, 'eating')
       await speak($, pick(['*crunch*', 'a treat! for me?!', '*happy chomp*']))
       return { text: `${p.name} gobbles the treat.` }
@@ -870,6 +928,20 @@ export const register: Register = on => {
       if (m === 'idle' && now - lastActivityAt > SLEEPY_AFTER) {
         await update($, mood, () => 'sleepy')
       }
+      const due = await read($, pet)
+      if (due?.poopAt && now >= due.poopAt && !isPooping) {
+        isPooping = true
+        try {
+          if (due.isLowMaintenance) await save($, { ...due, poopAt: undefined })
+          else {
+            await save($, { ...due, poopAt: undefined, poops: Math.min(MAX_POOPS, (due.poops ?? 0) + 1) })
+            await feel($, 'worried', 4000)
+            await speak($, pick(["Oops. That's yours now, darling. /flingo clean", 'I made you a little present, honey. /flingo clean', "Don't look at me like that. /flingo clean"]))
+          }
+        } finally {
+          isPooping = false
+        }
+      }
       // Small talk while things are quiet (free: no model call).
       const isIdle = now - lastActivityAt > CHATTER_EVERY_MS && now - lastChatterAt > CHATTER_EVERY_MS
       if (isIdle && m !== 'sleepy' && !(await read($, isQuiet)) && !(await read($, say))) {
@@ -930,7 +1002,8 @@ export const register: Register = on => {
     lastActivityAt = await $.clock.now()
     const p = await read($, pet)
     if (p) {
-      await save($, { ...p, turns: p.turns + 1, happiness: Math.min(100, p.happiness + 1) })
+      const mess = p.poops ?? 0
+      await save($, { ...p, turns: p.turns + 1, happiness: Math.max(0, Math.min(100, p.happiness + 1 - mess)) })
       const isStarving = hunger(p, lastActivityAt) > 75
       await feel($, isStarving || errorsThisTurn > 2 ? 'worried' : 'happy', 3000)
       // The pet is the assistant's face: at the end of a turn it says the reply's opening line.
@@ -977,7 +1050,7 @@ export const register: Register = on => {
           ))}
         </Box>
         {!at.isHopping && <Text color={COLORS[p.species]}>{`${SPRITE_INDENT}        \\`}</Text>}
-        {animatedSprite(p, at).map(row => (
+        {withPoops(animatedSprite(p, at), p.poops ?? 0).map(row => (
           <Text color={COLORS[p.species]} bold>{`${SPRITE_INDENT}${row}`}</Text>
         ))}
         {at.isHopping && <Text> </Text>}
@@ -985,7 +1058,7 @@ export const register: Register = on => {
         <Text bold>{`  ${p.name} the ${p.species}`}</Text>
         <Text dimColor>{`  feeling ${m}`}</Text>
         <Text>{`  happy  ${bar(p.happiness)}`}</Text>
-        <Text>{`  hungry ${bar(hunger(p, now))}`}</Text>
+        {!p.isLowMaintenance && <Text>{`  hungry ${bar(hunger(p, now))}`}</Text>}
         <Text> </Text>
         <Text bold>{'  /pet ...'}</Text>
         {PANE_COMMANDS.map(row => (

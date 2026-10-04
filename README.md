@@ -52,6 +52,8 @@ Then restart Claude Code.
 | `/flingo roast` · `hype` · `fortune` | a roast, a hype, a fortune cookie |
 | `/flingo comment` | a comment on your work right now |
 | `/flingo feed` · `treat` · `play` · `trick` | look after it |
+| `/flingo clean` | clean up the little mess it leaves after eating |
+| `/flingo needs off` · `on` | no hunger and no mess, if you don't want a tamagotchi |
 | `/flingo wear <crown\|tophat\|party\|bow\|shades\|none>` | outfits |
 | `/flingo name <name>` | rename it |
 | `/flingo big` · `small` | sidebar or status line |
