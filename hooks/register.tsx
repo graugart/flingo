@@ -18,6 +18,8 @@ const PANE = 'pet'
 const BUBBLE_LINES = 7
 const PANE_BACKGROUND = '#101014'
 const PANE_COLUMNS = 27 // the big sprites are 25 wide, plus a little air
+// Text cells inside the bubble: the pane less its border and padding.
+const BUBBLE_WIDTH = PANE_COLUMNS - 4
 const SPRITE_INDENT = ''
 const HOUR = 60 * 60 * 1000
 const SLEEPY_AFTER = 10 * 60 * 1000
@@ -252,6 +254,43 @@ function bubbleRows(text: string, width: number, lines: number): string[] {
   return rows
 }
 
+// Rows a text needs in the bubble, without truncating.
+function rowsNeeded(text: string, width: number): number {
+  let rows = 0
+  let row = ''
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const next = row ? `${row} ${word}` : word
+    if (next.length <= width) {
+      row = next
+      continue
+    }
+    if (row) rows += 1
+    row = word.slice(0, width)
+  }
+  return rows + (row ? 1 : 0)
+}
+
+// Everything Flingo says must fit its bubble: whole sentences that fit, else whole words and an ellipsis.
+// The typing cursor counts too, so the bubble never grows a row mid-sentence.
+function fitBubble(text: string): string {
+  const fits = (t: string) => rowsNeeded(`${t}▌`, BUBBLE_WIDTH) <= BUBBLE_LINES
+  const clean = text.replace(/\s+/g, ' ').trim()
+  if (fits(clean)) return clean
+  let kept = ''
+  for (const sentence of clean.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) ?? []) {
+    const next = `${kept}${sentence}`.trim()
+    if (!fits(next)) break
+    kept = `${next} `
+  }
+  if (kept.trim()) return kept.trim()
+  let words = ''
+  for (const word of clean.split(' ')) {
+    if (!fits(`${words} ${word}…`.trim())) break
+    words = `${words} ${word}`.trim()
+  }
+  return `${words}…`
+}
+
 const OUTFITS: Record<Outfit, [string, string]> = {
   crown: ['          .:*~*:.        ', String.raw`         |\/\/\/|        `],
   tophat: ['           ____          ', '         _|____|_        '],
@@ -456,7 +495,7 @@ function openingLine(answer: string): string | null {
     .trim()
   if (!plain) return null
   const sentence = plain.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? plain
-  return sentence.length > 160 ? `${sentence.slice(0, 157)}...` : sentence
+  return fitBubble(sentence)
 }
 
 function hunger(p: Pet, now: number): number {
@@ -513,21 +552,21 @@ const SPICE =
 
 const ASK = {
   comment:
-    'ROAST the person in ONE line (max 18 words) about the work in this conversation, mostly the latest turn, ' +
+    'ROAST the person in ONE line (max 100 characters) about the work in this conversation, mostly the latest turn, ' +
     'specific to what actually happened. ' +
     SPICE,
   roast:
-    'ROAST the work in this conversation in ONE line (max 20 words). ' +
+    'ROAST the work in this conversation in ONE line (max 100 characters). ' +
     SPICE,
   hype:
-    'HYPE the person up in ONE line (max 20 words) about something specific they got done in this conversation. Over the top. ',
+    'HYPE the person up in ONE line (max 100 characters) about something specific they got done in this conversation. Over the top. ',
   fortune:
-    'Write ONE fortune cookie (max 16 words) for the person, a playful prophecy loosely based on this conversation. Start with "You will". ',
+    'Write ONE fortune cookie (max 100 characters) for the person, a playful prophecy loosely based on this conversation. Start with "You will". ',
   chat:
     'The person is chatting with you directly through your little creature face. Answer them in character, ' +
-    'warm and witty with a little roast, max 40 words, using what you know from this conversation when it helps. ',
+    'warm and witty with a little roast, max 110 characters, using what you know from this conversation when it helps. ',
   live:
-    'The work is still in progress right now. In ONE line (max 14 words), say in first person what you are doing ' +
+    'The work is still in progress right now. In ONE line (max 90 characters), say in first person what you are doing ' +
     'this very moment, with a playful roast of the person or their code. Specific, affectionate, never cruel. ',
 } as const
 
@@ -563,11 +602,12 @@ async function comment($: EngineInterface, p: Pet, force = false, ask: Ask = 'co
   try {
     const r = await $.model.fork({ prompt: commentPrompt(p, ask, message) })
     if (!r.isAnswered) return null
-    const text = r.text.trim().replace(/^["“]|["”]$/g, '').replace(/\s*—\s*/g, ', ').slice(0, ask === 'chat' ? 400 : 160)
-    if (!text) return null
-    await update($, lastComment, () => text)
-    await speak($, text, COMMENT_SHOWS_FOR)
-    return text
+    const raw = r.text.trim().replace(/^["“]|["”]$/g, '').replace(/\s*—\s*/g, ', ')
+    const fitted = fitBubble(raw)
+    if (!fitted) return null
+    await update($, lastComment, () => fitted)
+    await speak($, fitted, COMMENT_SHOWS_FOR)
+    return fitted
   } catch {
     // Fired and forgotten from tool and turn hooks: a failed comment is just silence.
     return null
@@ -592,7 +632,8 @@ async function feel($: EngineInterface, m: Mood, ms = 4000) {
 
 let typingTimer: { cancel: () => void } | null = null
 
-async function speak($: EngineInterface, text: string, ms = 6000) {
+async function speak($: EngineInterface, said: string, ms = 6000) {
+  const text = fitBubble(said)
   typingTimer?.cancel()
   await update($, typed, () => 0)
   await update($, say, () => text)

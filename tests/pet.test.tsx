@@ -139,3 +139,30 @@ test('/pet say and /flingo chat back', async ($, on) => {
   const fed = await $.command.run({ command: 'flingo', args: 'stats' } as never)
   expect(fed.text).toContain('Happiness')
 })
+
+test('a long reply is cut to whole sentences that fit the bubble', async ($, on) => {
+  engine(on)
+  const long =
+    'Skat, du lod mig tegne ni dyr og slog otte fra. Panelbredden har du ændret oftere end du genstarter sessioner. ' +
+    'Og semikolonerne? Dem taler vi ikke om. Aldrig. Heller ikke i morgen, darling, for jeg har en reputation at passe på.'
+  on('model.fork', async () => ({ value: { isAnswered: true, text: long, usage: {} } }) as never)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
+  const said = (await $.command.run({ command: 'pet', args: 'roast' } as never)).text ?? ''
+  const line = said.replace(/^[^:]+: /, '')
+  expect(long.startsWith(line)).toBe(true)
+  expect(line.endsWith('.')).toBe(true)
+  expect(line.length).toBeLessThan(long.length)
+  // 7 rows of 23 cells, the typing cursor included.
+  const words = `${line}▌`.split(' ')
+  let rows = 1
+  let row = ''
+  for (const w of words) {
+    const next = row ? `${row} ${w}` : w
+    if (next.length <= 23) row = next
+    else {
+      rows += 1
+      row = w
+    }
+  }
+  expect(rows).toBeLessThan(8)
+})
