@@ -172,7 +172,7 @@ const HUNGRY_FLINGO = {
 }
 
 function hungryEngine(on: On, extra: Record<string, unknown> = {}) {
-  const clock = mock.clock(on, { now: 10 * 60 * 60 * 1000 } as never)
+  const clock = mock.clock(on, { now: 20 * 60 * 60 * 1000 } as never)
   mock.store(on, { pet: { ...HUNGRY_FLINGO, ...extra } })
   on('session.start', async ($, e) => ({ cwd: e.cwd }) as never)
   on('command.register', async () => ({ value: undefined }) as never)
@@ -205,4 +205,14 @@ test('/flingo needs off: no hunger, no mess', async ($, on) => {
   await clock.advance(6 * 60 * 1000)
   expect(await ui.find({ text: /\(___\)/ })).toBeFalsy()
   expect(await ui.find({ text: /hungry/ })).toBeFalsy()
+})
+
+test('a hungry Flingo guilt-trips you on its own', async ($, on) => {
+  const clock = hungryEngine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
+  await $.command.run({ command: 'flingo', args: 'big' } as never)
+  const ui = await $.ui.mount({ plugin: 'pet', surface: 'terminal', component: 'Pane', requestId: 'pet', props: PANE_PROPS as never })
+  // The hello line has gone by 15 s; what shows then is the guilt trip.
+  await clock.advance(15 * 1000)
+  expect(await ui.find({ text: /\/flingo/ })).toBeTruthy()
 })

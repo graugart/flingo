@@ -403,6 +403,19 @@ const FLAMINGO_QUIPS = [
   'honey, breathe', 'is this on purpose?', 'not mad, just watching', 'interesting. brave, even.',
 ]
 
+// Guilt trips while it is hungry (free: no model call).
+const HUNGRY_AT = 60
+const HUNGER_NAG_EVERY_MS = 8 * 60 * 1000
+const HUNGRY_LINES = [
+  "Starving, darling. Some of us can't live on coffee and bad decisions. /flingo feed",
+  'You fed your Docker containers more than me today. /flingo feed',
+  "I've seen better parenting from a Tamagotchi left in a drawer since 1998. /flingo feed",
+  "Hungry, honey. I'd eat your spaghetti code, but even I have standards. /flingo feed",
+  'Neglect is a bug too, babe. Patch it. /flingo feed',
+  'Do I look like I run on vibes? Feed me. /flingo feed',
+  'Remember me? Pink, fabulous, slowly wasting away? /flingo feed',
+]
+
 const CHATTER = [
   'still here, still cute', 'what are we building next?', 'I could use a snack...', 'is it break time?',
   'you are doing great, btw', 'I counted your tabs. too many.', 'remember to drink water', 'psst. /pet play?',
@@ -546,6 +559,7 @@ let toolsThisTurn = 0
 let lastLiveAt = 0
 let lastQuipAt = 0
 let lastChatterAt = 0
+let lastHungerNagAt = 0
 let isCommenting = false
 let lastStatus = ''
 let isPooping = false
@@ -605,12 +619,13 @@ const ASK = {
 
 type Ask = keyof typeof ASK
 
-function commentPrompt(p: Pet, ask: Ask, message = ''): string {
+function commentPrompt(p: Pet, ask: Ask, message = '', isStarving = false): string {
   return (
     // The pet is Claude Code's face: it speaks as the assistant doing the work, not as an onlooker.
     `You are the assistant in this conversation, and ${p.name}, a tiny ${p.species}, is your face: ` +
     'the person sees you as this little creature while you work together. Speak as yourself, in first person. ' +
     (PERSONALITY[p.species] ?? '') +
+    (isStarving ? 'You are STARVING and the person forgot to feed you: work in a sassy guilt trip about it. ' : '') +
     ASK[ask] +
     (ask === 'chat' ? `\n\nThe person says to you: ${message}\n\n` : '') +
     'Only mention things that actually appear in this conversation; never invent code details. ' +
@@ -633,7 +648,7 @@ async function comment($: EngineInterface, p: Pet, force = false, ask: Ask = 'co
   if (isCommenting) return null
   isCommenting = true
   try {
-    const r = await $.model.fork({ prompt: commentPrompt(p, ask, message) })
+    const r = await $.model.fork({ prompt: commentPrompt(p, ask, message, hunger(p, lastActivityAt) > HUNGRY_AT) })
     if (!r.isAnswered) return null
     const raw = r.text.trim().replace(/^["“]|["”]$/g, '').replace(/\s*—\s*/g, ', ')
     const fitted = fitBubble(raw)
@@ -733,7 +748,7 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
       const h = hunger(p, now)
       if (h > 80) {
         await feel($, 'worried')
-        await speak($, 'Too hungry to play... /pet feed?')
+        await speak($, 'Play? On an empty stomach? Feed me first, peasant. I mean, darling.')
         return { text: `${p.name} is too hungry to play.` }
       }
       // Playing burns energy: a bit hungrier, a lot happier.
@@ -900,7 +915,7 @@ export const register: Register = on => {
       }
       await update($, pet, () => p!)
       const h = hunger(p, now)
-      await speak($, h > 60 ? `${p.name} is hungry. Try /pet feed` : `${p.name} missed you!`)
+      await speak($, h > HUNGRY_AT ? pick(HUNGRY_LINES) : `${p.name} missed you!`)
     }
 
     await $.command.register({
@@ -941,6 +956,13 @@ export const register: Register = on => {
         } finally {
           isPooping = false
         }
+      }
+      const fed = await read($, pet)
+      const isHungry = fed !== null && hunger(fed, now) > HUNGRY_AT
+      if (isHungry && now - lastHungerNagAt > HUNGER_NAG_EVERY_MS && !(await read($, isQuiet)) && !(await read($, say))) {
+        lastHungerNagAt = now
+        await feel($, 'worried', 5000)
+        await speak($, pick(HUNGRY_LINES), 10000)
       }
       // Small talk while things are quiet (free: no model call).
       const isIdle = now - lastActivityAt > CHATTER_EVERY_MS && now - lastChatterAt > CHATTER_EVERY_MS
@@ -1013,7 +1035,7 @@ export const register: Register = on => {
         await update($, lastComment, () => line)
         await speak($, line, COMMENT_SHOWS_FOR)
       } else if (!quiet) void comment($, p)
-      else if (isStarving) await speak($, "I'm hungry... /pet feed?")
+      else if (isStarving) await speak($, pick(HUNGRY_LINES))
     }
     return next(e)
   })
