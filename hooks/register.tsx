@@ -786,7 +786,7 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
       }
       await save($, { ...p, poops: 0, happiness: Math.min(100, p.happiness + 5) })
       await feel($, 'love')
-      await speak($, pick(['Spotless. Unlike your git history.', 'Thank you, servant. I mean, darling.', 'Fresh. Now do the same for your codebase.']))
+      await speak($, pick(['Spotless. Unlike your search history.', 'Thank you, servant. I mean, darling.', 'Fresh. Now do the same for your codebase.']))
       return { text: `You cleaned up after ${p.name}.` }
     }
     case 'needs': {
