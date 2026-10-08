@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { CommandRunInput, CommandRunResult, EngineInterface, Register } from 'claude-code'
 
-import type { Mood, Outfit, Pet, Species } from '../types'
+import type { Buddy, BuddyKind, Mood, Outfit, Pet, Species } from '../types'
 
 const pet = atom({ plugin: 'pet', key: 'pet' } as const, null)
 const mood = atom({ plugin: 'pet', key: 'mood' } as const, 'idle')
@@ -475,6 +475,7 @@ const HELP = [
   '/pet comment      a comment on your work now',
   '/pet sleep|wake   nap time',
   '/pet clean        clean up its mess',
+  '/pet gift [kind]  a tiny pet for Flingo: shrimp, snail, fish, worm, frog',
   '/pet needs off|on no hunger and no mess, or back on',
   '/pet wear <item>  crown, tophat, party, bow, shades, none',
   '/pet name <name>  rename it',
@@ -493,6 +494,7 @@ const PANE_COMMANDS = [
   'comment    sleep',
   'wake       stats',
   'clean      needs',
+  'gift       buddy',
   'wear <item>',
   'name <name>',
   'small      quiet',
@@ -526,6 +528,68 @@ function withPoopDue(p: Pet, now: number): Pet {
 }
 
 // Draws the messes over the empty cells at the bottom left of the sprite.
+// Flingo's own little pet. It plays for a while, then runs off, gets sat on, or gets eaten.
+const BUDDY_MIN_MS = 5 * 60 * 1000
+const BUDDY_SPREAD_MS = 25 * 60 * 1000
+const BUDDY_ART: Record<BuddyKind, [string, string]> = {
+  shrimp: [',~*>', ',~*}'],
+  snail: ['@_y', '@_v'],
+  fish: ['><>', '><)'],
+  worm: ['~~o', '-~o'],
+  frog: ['@..@', '@--@'],
+}
+const BUDDY_KINDS = Object.keys(BUDDY_ART) as BuddyKind[]
+const BUDDY_NAMES: Record<BuddyKind, string[]> = {
+  shrimp: ['Gerald', 'Popcorn', 'Little Kevin'],
+  snail: ['Turbo', 'Gary', 'Speedy'],
+  fish: ['Bubbles', 'Nemo-ish', 'Sushi'],
+  worm: ['Wiggles', 'Noodle', 'Earl'],
+  frog: ['Prince', 'Hoppy', 'Kermit Jr.'],
+}
+
+type Fate = 'ran' | 'squished' | 'eaten'
+
+// Shrimp are what flamingos eat. They do not last.
+function fateOf(kind: BuddyKind): Fate {
+  const roll = Math.random()
+  if (kind === 'shrimp') return roll < 0.6 ? 'eaten' : roll < 0.8 ? 'ran' : 'squished'
+  return roll < 0.4 ? 'ran' : roll < 0.7 ? 'squished' : 'eaten'
+}
+
+const FATE_LINES: Record<Fate, ((name: string) => string)[]> = {
+  ran: [
+    n => `${n} ran away. Can't blame them, honey. They saw your code.`,
+    n => `${n} left me. Said I was "too much". Correct.`,
+    n => `${n} escaped. First one to ever leave this terminal on purpose.`,
+  ],
+  squished: [
+    n => `I sat on ${n}. Thirty pounds of fabulous. RIP, darling.`,
+    n => `Oops. Stepped on ${n}. One leg, zero spatial awareness.`,
+    n => `${n} got flattened during my hair flip. Worth it? Discuss.`,
+  ],
+  eaten: [
+    n => `I ate ${n}. Delicious. I mean, tragic. Pink isn't free, babe.`,
+    n => `${n} looked at me funny, so I ate them. Lesson learned.`,
+    n => `Where's ${n}? No idea. Unrelated: I'm not hungry anymore.`,
+  ],
+}
+
+// Draws the buddy at Flingo's feet, wandering a cell left and right.
+function withBuddy(rows: string[], buddy: Buddy | undefined, tick: number): string[] {
+  if (!buddy) return rows
+  const art = BUDDY_ART[buddy.kind][Math.floor(tick / 2) % 2]!
+  const col = 17 + (Math.floor(tick / 5) % 3)
+  const last = rows.length - 1
+  return rows.map((row, i) => {
+    if (i !== last) return row
+    const cells = [...row.padEnd(col + art.length)]
+    ;[...art].forEach((ch, c) => {
+      if (cells[col + c] === ' ') cells[col + c] = ch
+    })
+    return cells.join('')
+  })
+}
+
 function withPoops(rows: string[], poops: number): string[] {
   if (!poops) return rows
   const art = poops > 1 ? [...POOP_ART.slice(0, -1), `${POOP_ART[2]}x${poops}`] : POOP_ART
@@ -741,7 +805,9 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
         text:
           `${p.name} the ${p.species}, ${days} day${days === 1 ? '' : 's'} old\n` +
           `Happiness ${bar(p.happiness)}  Hunger ${bar(hunger(p, now))}\n` +
-          `Petted ${p.pets} times, watched ${p.turns} turns`,
+          `Petted ${p.pets} times, watched ${p.turns} turns` +
+          (p.buddy ? `\nBuddy: ${p.buddy.name} the ${p.buddy.kind}` : '') +
+          (p.buddiesLost ? `\nBuddies lost: ${p.buddiesLost}` : ''),
       }
     }
     case 'play': {
@@ -754,7 +820,9 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
       // Playing burns energy: a bit hungrier, a lot happier.
       await save($, { ...p, lastFedAt: p.lastFedAt - HOUR / 2, happiness: Math.min(100, p.happiness + 12) })
       await feel($, 'happy', 6000)
-      const game = pick(PLAY[p.species])
+      const game = p.buddy
+        ? pick([`*chases ${p.buddy.name} in circles*`, `*plays tag with ${p.buddy.name}, cheats*`, `*teaches ${p.buddy.name} to strut*`])
+        : pick(PLAY[p.species])
       await speak($, game)
       return { text: `You play with ${p.name}. ${game}` }
     }
@@ -779,6 +847,34 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
     case 'help':
     case '?':
       return { text: HELP }
+    case 'gift':
+    case 'buddy': {
+      if (verb === 'buddy' || (p.buddy && !rest.length)) {
+        if (!p.buddy) return { text: `${p.name} has no buddy. Give one with /pet gift <${BUDDY_KINDS.join('|')}>.` }
+        const minutes = Math.max(1, Math.round((now - p.buddy.since) / 60000))
+        return { text: `${p.name} and ${p.buddy.name} the ${p.buddy.kind}, together for ${minutes} min. So far.` }
+      }
+      if (p.buddy) {
+        await speak($, `One at a time, darling. ${p.buddy.name} is still alive. For now.`)
+        return { text: `${p.name} already has ${p.buddy.name} the ${p.buddy.kind}.` }
+      }
+      const asked = (rest[0] ?? '').toLowerCase() as BuddyKind
+      const kind = BUDDY_KINDS.includes(asked) ? asked : pick(BUDDY_KINDS)
+      const buddy: Buddy = {
+        kind,
+        name: pick(BUDDY_NAMES[kind]),
+        since: now,
+        fateAt: now + BUDDY_MIN_MS + Math.round(Math.random() * BUDDY_SPREAD_MS),
+      }
+      await save($, { ...p, buddy, happiness: Math.min(100, p.happiness + 8) })
+      await feel($, 'love', 6000)
+      await speak($, pick([
+        `A ${kind}! For me? I'll call it ${buddy.name}. We'll be best friends forever.`,
+        `Meet ${buddy.name} the ${kind}. I promise to be gentle. Mostly.`,
+        `${buddy.name}! Finally, someone in this terminal with taste.`,
+      ]))
+      return { text: `You gave ${p.name} a ${kind} called ${buddy.name}. Good luck, ${buddy.name}.` }
+    }
     case 'clean': {
       if (!p.poops) {
         await speak($, 'Nothing to clean, babe. For once.')
@@ -964,6 +1060,14 @@ export const register: Register = on => {
         await feel($, 'worried', 5000)
         await speak($, pick(HUNGRY_LINES), 10000)
       }
+      const host = await read($, pet)
+      if (host?.buddy && now >= host.buddy.fateAt && !isPooping) {
+        const lost = host.buddy
+        const fate = fateOf(lost.kind)
+        await save($, { ...host, buddy: undefined, buddiesLost: (host.buddiesLost ?? 0) + 1 })
+        await feel($, fate === 'eaten' ? 'eating' : 'worried', 5000)
+        await speak($, pick(FATE_LINES[fate])(lost.name), 15000)
+      }
       // Small talk while things are quiet (free: no model call).
       const isIdle = now - lastActivityAt > CHATTER_EVERY_MS && now - lastChatterAt > CHATTER_EVERY_MS
       if (isIdle && m !== 'sleepy' && !(await read($, isQuiet)) && !(await read($, say))) {
@@ -1072,7 +1176,7 @@ export const register: Register = on => {
           ))}
         </Box>
         {!at.isHopping && <Text color={COLORS[p.species]}>{`${SPRITE_INDENT}        \\`}</Text>}
-        {withPoops(animatedSprite(p, at), p.poops ?? 0).map(row => (
+        {withBuddy(withPoops(animatedSprite(p, at), p.poops ?? 0), p.buddy, tick).map(row => (
           <Text color={COLORS[p.species]} bold>{`${SPRITE_INDENT}${row}`}</Text>
         ))}
         {at.isHopping && <Text> </Text>}

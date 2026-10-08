@@ -216,3 +216,16 @@ test('a hungry Flingo guilt-trips you on its own', async ($, on) => {
   await clock.advance(15 * 1000)
   expect(await ui.find({ text: /\/flingo/ })).toBeTruthy()
 })
+
+test('a gifted buddy plays at Flingo\'s feet, then meets its fate', async ($, on) => {
+  const clock = hungryEngine(on, { lastFedAt: 20 * 60 * 60 * 1000 })
+  await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
+  await $.command.run({ command: 'flingo', args: 'big' } as never)
+  expect((await $.command.run({ command: 'flingo', args: 'gift fish' } as never)).text).toContain('a fish called')
+  const ui = await $.ui.mount({ plugin: 'pet', surface: 'terminal', component: 'Pane', requestId: 'pet', props: PANE_PROPS as never })
+  expect(await ui.find({ text: /><[>)]/ })).toBeTruthy()
+  expect((await $.command.run({ command: 'flingo', args: 'gift snail' } as never)).text).toContain('already has')
+  await clock.advance(31 * 60 * 1000)
+  expect(await ui.find({ text: /><[>)]/ })).toBeFalsy()
+  expect((await $.command.run({ command: 'flingo', args: 'stats' } as never)).text).toContain('Buddies lost: 1')
+})

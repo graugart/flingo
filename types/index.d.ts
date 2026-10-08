@@ -1,6 +1,8 @@
 export type Species = 'cat' | 'dog' | 'bunny' | 'duck' | 'owl' | 'dragon' | 'blob' | 'ghost' | 'axolotl' | 'flamingo'
 export type Mood = 'idle' | 'happy' | 'busy' | 'worried' | 'sleepy' | 'eating' | 'love'
 export type Outfit = 'crown' | 'tophat' | 'party' | 'bow' | 'shades'
+export type BuddyKind = 'shrimp' | 'snail' | 'fish' | 'worm' | 'frog'
+export type Buddy = { kind: BuddyKind; name: string; since: number; fateAt: number }
 export type Pet = {
   name: string
   species: Species
@@ -15,6 +17,9 @@ export type Pet = {
   poopAt?: number
   // /flingo needs off: no hunger and no messes, for people who don't want a tamagotchi.
   isLowMaintenance?: boolean
+  // A tiny pet of Flingo's own, from /flingo gift. It never lasts.
+  buddy?: Buddy
+  buddiesLost?: number
 }
 
 declare module 'claude-code' {
