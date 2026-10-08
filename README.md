@@ -54,6 +54,7 @@ Then restart Claude Code.
 | `/flingo feed` · `treat` · `play` · `trick` | look after it |
 | `/flingo clean` | clean up the little mess it leaves after eating |
 | `/flingo gift [shrimp\|snail\|fish\|worm\|frog]` | give Flingo a tiny pet. It won't last |
+| `/flingo spelling off` · `on` | Flingo sometimes roasts the typos in your prompts |
 | `/flingo needs off` · `on` | no hunger and no mess, if you don't want a tamagotchi |
 | `/flingo wear <crown\|tophat\|party\|bow\|shades\|none>` | outfits |
 | `/flingo name <name>` | rename it |

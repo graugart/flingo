@@ -476,6 +476,7 @@ const HELP = [
   '/pet sleep|wake   nap time',
   '/pet clean        clean up its mess',
   '/pet gift [kind]  a tiny pet for Flingo: shrimp, snail, fish, worm, frog',
+  '/pet spelling off|on  typo roasts on your prompts, sometimes',
   '/pet needs off|on no hunger and no mess, or back on',
   '/pet wear <item>  crown, tophat, party, bow, shades, none',
   '/pet name <name>  rename it',
@@ -495,6 +496,7 @@ const PANE_COMMANDS = [
   'wake       stats',
   'clean      needs',
   'gift       buddy',
+  'spelling off|on',
   'wear <item>',
   'name <name>',
   'small      quiet',
@@ -544,7 +546,7 @@ const BUDDY_NAMES: Record<BuddyKind, string[]> = {
   snail: ['Turbo', 'Gary', 'Speedy'],
   fish: ['Bubbles', 'Nemo-ish', 'Sushi'],
   worm: ['Wiggles', 'Noodle', 'Earl'],
-  frog: ['Prince', 'Hoppy', 'Kermit Jr.'],
+  frog: ['Prince', 'Hoppy', 'Kermit Junior'],
 }
 
 type Fate = 'ran' | 'squished' | 'eaten'
@@ -683,12 +685,46 @@ const ASK = {
 
 type Ask = keyof typeof ASK
 
+// Typo roasts: sometimes, not always. A small model checks the prompt only when a roast is allowed.
+const SPELLING_ROAST_CHANCE = 0.35
+const SPELLING_ROAST_EVERY_MS = 10 * 60 * 1000
+let lastSpellingRoastAt = 0
+
+async function roastSpelling($: EngineInterface, p: Pet, text: string, now: number) {
+  const words = text.trim().split(/\s+/).length
+  if (p.isSpellingRoastOff || text.trim().startsWith('/') || words < 3) return
+  if (now - lastSpellingRoastAt < SPELLING_ROAST_EVERY_MS || Math.random() > SPELLING_ROAST_CHANCE) return
+  try {
+    const r = await $.model.complete({
+      model: 'haiku',
+      maxTokens: 80,
+      system:
+        `You are ${p.name}, a sassy flamingo who calls people darling, honey, sweetie or babe. ` +
+        'You check a message for clear spelling mistakes in any language. Ignore lowercase, missing punctuation, ' +
+        'slang, abbreviations, code, names and mixed languages. Only real misspelled words count.',
+      prompt:
+        `Message:\n${text.slice(0, 2000)}\n\n` +
+        'If it has a clear spelling mistake, reply with ONE savage, funny roast (max 100 characters) that quotes ' +
+        'the misspelled word. No em dashes, no emoji. If there is no clear mistake, reply exactly: OK',
+    })
+    if (!r.isAnswered) return
+    const roast = r.text.trim().replace(/^["“]|["”]$/g, '').replace(/\s*—\s*/g, ', ')
+    if (!roast || /^ok\.?$/i.test(roast)) return
+    lastSpellingRoastAt = now
+    await feel($, 'happy', 5000)
+    await speak($, roast, COMMENT_SHOWS_FOR)
+  } catch {
+    // A failed check is just no roast.
+  }
+}
+
 function commentPrompt(p: Pet, ask: Ask, message = '', isStarving = false): string {
   return (
     // The pet is Claude Code's face: it speaks as the assistant doing the work, not as an onlooker.
     `You are the assistant in this conversation, and ${p.name}, a tiny ${p.species}, is your face: ` +
     'the person sees you as this little creature while you work together. Speak as yourself, in first person. ' +
     (PERSONALITY[p.species] ?? '') +
+    (p.buddy ? `Your own tiny pet right now is ${p.buddy.name} the ${p.buddy.kind}. ` : '') +
     (isStarving ? 'You are STARVING and the person forgot to feed you: work in a sassy guilt trip about it. ' : '') +
     ASK[ask] +
     (ask === 'chat' ? `\n\nThe person says to you: ${message}\n\n` : '') +
@@ -874,6 +910,15 @@ async function petCommand($: EngineInterface, e: CommandRunInput): Promise<Comma
         `${buddy.name}! Finally, someone in this terminal with taste.`,
       ]))
       return { text: `You gave ${p.name} a ${kind} called ${buddy.name}. Good luck, ${buddy.name}.` }
+    }
+    case 'spelling': {
+      const want = (rest[0] ?? '').toLowerCase()
+      if (want !== 'on' && want !== 'off') {
+        return { text: `Typo roasts are ${p.isSpellingRoastOff ? 'off' : 'on'}. /pet spelling off or /pet spelling on.` }
+      }
+      await save($, { ...p, isSpellingRoastOff: want === 'off' })
+      await speak($, want === 'off' ? 'Fine. Misspell in peace, darling.' : 'Oh, I am SO back. Type carefully, sweetie.')
+      return { text: `Typo roasts are ${want}.` }
     }
     case 'clean': {
       if (!p.poops) {
@@ -1093,6 +1138,8 @@ export const register: Register = on => {
     // A prompt the person entered may seat the pane at any width.
     const p = await read($, pet)
     if (p && !isBigOpen && (await $.store.get(BIG_KEY)) === true) await openBig($, p)
+    const quiet = (await read($, isQuiet)) || (await read($, isHidden))
+    if (p && !quiet) void roastSpelling($, p, e.text, lastActivityAt)
     return next(e)
   })
 

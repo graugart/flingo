@@ -20,6 +20,8 @@ export type Pet = {
   // A tiny pet of Flingo's own, from /flingo gift. It never lasts.
   buddy?: Buddy
   buddiesLost?: number
+  // /flingo spelling off stops the typo roasts.
+  isSpellingRoastOff?: boolean
 }
 
 declare module 'claude-code' {

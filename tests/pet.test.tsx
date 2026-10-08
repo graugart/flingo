@@ -229,3 +229,27 @@ test('a gifted buddy plays at Flingo\'s feet, then meets its fate', async ($, on
   expect(await ui.find({ text: /><[>)]/ })).toBeFalsy()
   expect((await $.command.run({ command: 'flingo', args: 'stats' } as never)).text).toContain('Buddies lost: 1')
 })
+
+test('typo roasts come sometimes, and never when switched off', { timeoutMs: 90000 } as never, async ($, on) => {
+  const clock = hungryEngine(on, { lastFedAt: 20 * 60 * 60 * 1000 })
+  let checks = 0
+  on('model.complete', async () => {
+    checks += 1
+    return { value: { isAnswered: true, text: '"Teh"? Darling, the keyboard is right there.', usage: {} } } as never
+  })
+  on('prompt.submit', async (_$, e) => ({ text: (e as { text: string }).text }) as never)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal' } as never)
+  for (let i = 0; i < 14; i++) {
+    await $.prompt.submit({ text: 'fix teh login bug please', wait: false } as never)
+    await clock.advance(11 * 60 * 1000)
+  }
+  expect(checks).toBeGreaterThan(0)
+  expect(checks).toBeLessThan(14)
+  await $.command.run({ command: 'flingo', args: 'spelling off' } as never)
+  const before = checks
+  for (let i = 0; i < 4; i++) {
+    await $.prompt.submit({ text: 'fix teh login bug please', wait: false } as never)
+    await clock.advance(11 * 60 * 1000)
+  }
+  expect(checks).toBe(before)
+})
